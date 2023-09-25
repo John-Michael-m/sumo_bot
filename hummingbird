@@ -1,0 +1,90 @@
+/*Preface: An arduino is a handy microcontroller or tiny computer that can be used to program
+electronics. To make the arduino act the way you imagine, you need to program it using the
+arduino language, which is similar to C++, but is unique.*/
+/*The standard structure of the program is as follows: library calls, variable instantiation, void
+setup, and void loop. The ‘void’ keyword is used in function declarations where no information is
+returned. The following code uses void functions because all the information is gathered from
+the sensors, which tells the robots to do something, and an action is performed, but no
+information is stored. The void setup is used to assign values to the variables you created
+before the setup, and the void loop is the piece of the program that will run continuously once
+executed, and should contain calls to the void functions you created before it.
+//Contained in this document are two main features needed to have a working robot for the
+sumobots competition. First is the driveForward function, which allows the robot to speed
+forward at a given speed. Next is the distance detection, which allows the robot to determine
+how far away something is. Using these together, the robot is programmed to charge forward if
+it sees something it can push.*/
+//These are needed libraries
+#include <Hummingbird.h>
+Hummingbird hummingbird;
+//Initializing the ports and numbers allows for their creation in the void setup. Here, byte and int
+//behave similarly.
+byte leftMotorPort;
+byte rightMotorPort;
+byte distSensorPort;
+byte lineSensorPort;
+//These variables are especially not needed, but make the code below easier to understand. In
+//addition, any change made to these variables in the void setup will affect all other calls to them
+//in the code.
+int maxSpeed;
+int minDistance;
+//This is where the precursor to all your code goes. This section takes the variables you
+//initialized previously and adds values to them.
+void setup() {
+// put your setup code here, to run once:
+  hummingbird.init();
+  leftMotorPort = 2;
+  rightMotorPort = 1;
+  distSensorPort = 1;
+  lineSensorPort = 2;
+  maxSpeed = 255; //Full Power
+  minDistance = 40; //In cm
+}
+//Other void functions can be created beyond just the standard void setup and void loop. These
+//will be referenced in your void loop.
+void driveForward(int power)
+{
+  hummingbird.setMotor(rightMotorPort, maxSpeed);
+  hummingbird.setMotor(leftMotorPort, -maxSpeed);
+}
+double convertToDistance(int raw_sensor)
+{
+  double distance;
+// If we're below 130, then the sensor probably isn't detecting anything. Set value to 100 cm,
+//max range
+  if (raw_sensor < 130)
+  distance = 100.0;
+  else {
+  raw_sensor = raw_sensor - 120; // subtract the noise floor of 120
+// If, after subtraction we're above 680, the sensor is saturated, indicates minimum sense-able
+//distance (5 cm)
+    if (raw_sensor > 680)
+      distance = 5.0;
+// If not, we do a fifth order polynomial calculation that fits the data pretty well
+// This takes around 1 millisecond. The raw data is included in the comments to allow other
+//methods to be used that are less computationally intensive
+    else {
+      double sensor_val_square = (double)raw_sensor * (double)raw_sensor; /* Minimizing the
+number of times we calculate this*/
+      distance = sensor_val_square * sensor_val_square * raw_sensor * -0.000000000004789 + sensor_val_square * sensor_val_square * 0.000000010057143 - sensor_val_square * raw_sensor * 0.000008279033021 + sensor_val_square * 0.003416264518201 - raw_sensor * 0.756893112198934 + 90.707167605683000;
+    }
+  }
+  return distance;
+}
+void loop() {
+// put your main code here, to run repeatedly:
+//If the robot sees something within 40cm (15.75 in), drive full speed ahead at it
+  if (hummingbird.readSensorValue(lineSensorPort) < 200)
+  {
+    hummingbird.setMotor(rightMotorPort, -150);
+    hummingbird.setMotor(leftMotorPort, 150);
+    delay(1000);
+  }
+  if (convertToDistance( hummingbird.readSensorValue(distSensorPort)) < minDistance)
+  {
+    driveForward(maxSpeed);
+  }
+  else { //Otherwise turn until it sees something
+    hummingbird.setMotor(rightMotorPort, 150);
+    hummingbird.setMotor(leftMotorPort, 150);
+  }
+}
